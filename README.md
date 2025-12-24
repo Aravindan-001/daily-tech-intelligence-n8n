@@ -17,7 +17,7 @@ This project is an AI-powered automation workflow built using **n8n** that aggre
 - Tracks email delivery status
 
 ## 🧩 Workflow Diagram
-![Workflow Overview](screenshots/workflow-overview.png)
+![Workflow Overview]
 
 ## 🛠 Tools & Integrations
 - n8n
