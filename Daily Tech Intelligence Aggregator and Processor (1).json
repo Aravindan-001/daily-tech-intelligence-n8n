@@ -1,0 +1,682 @@
+{
+  "name": "Daily Tech Intelligence Aggregator and Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "1c0d981d-64d7-4080-825e-b5e99465603f",
+      "name": "Daily Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -560,
+        2896
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "categories",
+              "value": "[\"AI Tools\", \"Tech News\", \"Developer Tools\", \"Productivity Tools\", \"Design / PPT / Website Tools\", \"Other Tech\"]",
+              "type": "array"
+            },
+            {
+              "id": "id-2",
+              "name": "recipientEmail",
+              "value": "aravindansingaram56@gmail.com,aravindans583224205003@nprcolleges.org",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a403117a-c721-4617-9fce-a64a5cc1e20b",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -352,
+        2896
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean and normalize the data\nconst items = $input.all();\nconst seenUrls = new Set();\nconst cleanedItems = [];\n\n// Helper function to validate URL\nfunction isValidUrl(string) {\n  try {\n    new URL(string);\n    return true;\n  } catch (_) {\n    return false;\n  }\n}\n\n// Helper function to normalize date to ISO format\nfunction normalizeDate(dateValue) {\n  if (!dateValue) return new Date().toISOString();\n  \n  try {\n    const date = new Date(dateValue);\n    if (isNaN(date.getTime())) {\n      return new Date().toISOString();\n    }\n    return date.toISOString();\n  } catch (e) {\n    return new Date().toISOString();\n  }\n}\n\n// Process each item\nfor (const item of items) {\n  const data = item.json;\n  \n  // Extract URL (check common field names)\n  const url = data.url || data.link || data.href || '';\n  \n  // Skip if URL is invalid or duplicate\n  if (!url || !isValidUrl(url)) {\n    console.log('Skipping item with invalid URL:', url);\n    continue;\n  }\n  \n  if (seenUrls.has(url)) {\n    console.log('Skipping duplicate URL:', url);\n    continue;\n  }\n  \n  seenUrls.add(url);\n  \n  // Normalize and ensure required fields\n  const cleanedData = {\n    url: url.trim(),\n    title: data.title || data.headline || 'Untitled',\n    description: data.description || data.summary || data.content || '',\n    category: data.category || 'Uncategorized',\n    date: normalizeDate(data.date || data.publishedDate || data.timestamp),\n    source: data.source || data.author || 'Unknown',\n    tags: Array.isArray(data.tags) ? data.tags : (data.tags ? [data.tags] : []),\n    // Preserve any additional fields\n    ...Object.keys(data).reduce((acc, key) => {\n      if (!['url', 'link', 'href', 'title', 'headline', 'description', 'summary', 'content', 'category', 'date', 'publishedDate', 'timestamp', 'source', 'author', 'tags'].includes(key)) {\n        acc[key] = data[key];\n      }\n      return acc;\n    }, {})\n  };\n  \n  cleanedItems.push({ json: cleanedData });\n}\n\nconsole.log(`Processed ${items.length} items, kept ${cleanedItems.length} after deduplication and validation`);\n\nreturn cleanedItems;"
+      },
+      "id": "b62e8c4d-d9d7-4a53-9330-8a24047dd217",
+      "name": "Clean and Normalize Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        2896
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1BIPtKIt_B06faQft9gy9zz1kujX8qpKbdzDNqUCncwo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "AI_Tech_Content",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $json.title }}",
+            "Category": "={{ $json.category }}",
+            "Summary": "={{ $json.summary }}",
+            "Source": "={{ $json.source }}",
+            "URL": "={{ $json.url }}",
+            "Published Date": "={{ $json.publishedDate }}",
+            "Date Added": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "d3b43d39-9c9a-4070-974a-9dbcfe84ebbb",
+      "name": "Append to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1168,
+        2896
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "O2yTFdxQ7Mo0cxCM",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "emailContent",
+              "value": "=<div style=\"margin-bottom: 20px; padding: 15px; border: 1px solid #e0e0e0; border-radius: 5px;\">\n  <h2 style=\"color: #333; margin-top: 0;\">{{ $json.title }}</h2>\n  <span style=\"display: inline-block; background-color: #007bff; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px; margin-bottom: 10px;\">{{ $json.category }}</span>\n  <ul style=\"color: #555; line-height: 1.6;\">\n    <li>{{ $json.summary }}</li>\n  </ul>\n  <a href=\"{{ $json.url }}\" style=\"color: #007bff; text-decoration: none;\">Read more →</a>\n</div>",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "cde2500a-9383-4502-aaad-ed7cdb1559ab",
+      "name": "Format for Email Newsletter",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1360,
+        2896
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "emailContent",
+        "options": {}
+      },
+      "id": "9c1eb88f-ba64-4c57-bfc9-12a474bb6371",
+      "name": "Aggregate Daily Newsletter Content",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        768,
+        3104
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1BIPtKIt_B06faQft9gy9zz1kujX8qpKbdzDNqUCncwo"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Email_Delivery_Tracking"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $now.toISO() }}",
+            "Newsletter Content": "={{ $json.emailContent }}",
+            "Items Count": "={{ $json.emailContent.length }}",
+            "Status": "Ready for Delivery"
+          },
+          "matchingColumns": [
+            "Date"
+          ],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Newsletter Content",
+              "displayName": "Newsletter Content",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Items Count",
+              "displayName": "Items Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "74b1ea3a-abcb-4a66-a6b7-0a98a33ca659",
+      "name": "Append to Email Delivery Tracking Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        992,
+        3104
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "OOiRpxNmaKlbxxTp",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "aravindansingaram56@gmail.com,aravindans583224205003@nprcolleges.org,vijayseenivashb583224104119@nprcolleges.org",
+        "subject": "=Daily Tech Intelligence Newsletter - {{ $now.format('MMMM dd, yyyy') }}",
+        "message": "={{ $json.emailContent }}",
+        "options": {}
+      },
+      "id": "aa7f5a91-59cb-43c0-aab7-06217c653b05",
+      "name": "Send Daily Newsletter Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1168,
+        3104
+      ],
+      "webhookId": "67dd2811-4949-4900-b0c1-46c578bb4f70",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "HGv5k2vIT26UBpDI",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1FeUZ4MdjRcxco6bIEg88ovuQ4CDxFQ_WDlH6BHz2Lsw",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Email_Delivery_Status",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $now.toISO() }}",
+            "emailSubject": "=Daily Tech Intelligence Newsletter - {{ $now.format('MMMM dd, yyyy') }}",
+            "totalItems": "={{ $('Aggregate Daily Newsletter Content').item.json.emailContent.length }}",
+            "emailSent": "YES",
+            "sentTime": "={{ $now.toISO() }}",
+            "status": "COMPLETED"
+          },
+          "matchingColumns": [
+            "date"
+          ],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "emailSubject",
+              "displayName": "emailSubject",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "totalItems",
+              "displayName": "totalItems",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "emailSent",
+              "displayName": "emailSent",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "sentTime",
+              "displayName": "sentTime",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "87360026-23cb-48d0-96b7-2ccf5466aa83",
+      "name": "Update Email Sent Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1392,
+        3104
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "OOiRpxNmaKlbxxTp",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://techcrunch.com/feed/",
+        "options": {}
+      },
+      "id": "21bf7ba3-5b03-423d-935e-d60efa950008",
+      "name": "Fetch TechCrunch RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        2576
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.theverge.com/rss/index.xml",
+        "options": {}
+      },
+      "id": "1780201c-6c08-4a0a-a41e-aee8df9f8a3c",
+      "name": "Fetch The Verge RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        2720
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://hacker-news.firebaseio.com/v0/topstories.json",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "b129d17d-ee11-4865-87bc-ca815262aa11",
+      "name": "Fetch Hacker News Top Stories",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -16,
+        3056
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.artificialintelligence-news.com/feed/",
+        "options": {}
+      },
+      "id": "f5a2ad16-11c6-4c88-acf1-6af9d33cf18f",
+      "name": "Fetch AI News RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        3232
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "id": "a76c90f1-50e4-4abf-a35f-adadff068472",
+      "name": "Merge All Data Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        304,
+        2864
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "title",
+              "value": "={{ $json.title || $json.headline || 'Untitled' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "url",
+              "value": "={{ $json.link || $json.url }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "source",
+              "value": "={{ $json.source || $json.creator || 'Unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "description",
+              "value": "={{ $json.description || $json.content || $json.contentSnippet || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "publishedDate",
+              "value": "={{ $json.pubDate || $json.isoDate || $json.published || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "1b9d5b2e-31f3-4c32-a62c-1619ead4cb3d",
+      "name": "Normalize Data Structure",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        544,
+        2896
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Categorize and summarize tech news items using keyword-based logic\nconst item = $input.item.json;\n\n// Extract fields from input\nconst title = item.title || 'Untitled';\nconst description = item.description || item.content || item.contentSnippet || '';\nconst url = item.url || item.link || '';\nconst source = item.source || item.creator || item.author || 'Unknown';\nconst publishedDate = item.publishedDate || item.pubDate || item.isoDate || '';\n\n// Categorize based on keywords\nlet category = 'Other Tech';\nconst lowerTitle = title.toLowerCase();\nconst lowerDesc = description.toLowerCase();\nconst combinedText = lowerTitle + ' ' + lowerDesc;\n\nif (combinedText.match(/\\b(ai|ml|gpt|llm|machine learning|artificial intelligence|neural|deep learning)\\b/i)) {\n  category = 'AI Tools';\n} else if (combinedText.match(/\\b(startup|funding|launch|raises|investment|venture)\\b/i)) {\n  category = 'Tech News';\n} else if (combinedText.match(/\\b(api|sdk|framework|library|developer|code|programming)\\b/i)) {\n  category = 'Developer Tools';\n} else if (combinedText.match(/\\b(productivity|workflow|automation|efficiency|task)\\b/i)) {\n  category = 'Productivity Tools';\n} else if (combinedText.match(/\\b(design|ui|ux|template|website|presentation|ppt)\\b/i)) {\n  category = 'Design / PPT / Website Tools';\n}\n\n// Generate 3-bullet summary from first 300 chars of description\nconst summaryText = description.substring(0, 300).trim();\nconst sentences = summaryText.split(/[.!?]+/).filter(s => s.trim().length > 0);\n\nlet summary = [];\nif (sentences.length >= 3) {\n  summary = sentences.slice(0, 3).map(s => s.trim());\n} else if (sentences.length > 0) {\n  // If less than 3 sentences, use what we have and pad with generic points\n  summary = sentences.map(s => s.trim());\n  while (summary.length < 3) {\n    if (summary.length === 1) {\n      summary.push('Relevant update in the tech industry');\n    } else {\n      summary.push('See full article for more details');\n    }\n  }\n} else {\n  // No sentences found, create generic summary\n  summary = [\n    'Tech news or tool update',\n    'Relevant to the industry',\n    'See full article for details'\n  ];\n}\n\n// Return structured JSON\nreturn {\n  json: {\n    title: title,\n    category: category,\n    summary: summary,\n    source: source,\n    url: url,\n    publishedDate: publishedDate\n  }\n};"
+      },
+      "id": "c051cace-fa85-4239-a3c8-f71494f5af7b",
+      "name": "Categorize and Summarize Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        2896
+      ]
+    }
+  ],
+  "pinData": {
+    "Daily Schedule Trigger": [
+      {
+        "json": {
+          "name": "First item",
+          "code": 1
+        }
+      },
+      {
+        "json": {
+          "name": "Second item",
+          "code": 2
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Daily Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Fetch TechCrunch RSS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch The Verge RSS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Hacker News Top Stories",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch AI News RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean and Normalize Data": {
+      "main": [
+        [
+          {
+            "node": "Append to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Format for Email Newsletter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for Email Newsletter": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Daily Newsletter Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Daily Newsletter Content": {
+      "main": [
+        [
+          {
+            "node": "Append to Email Delivery Tracking Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Email Delivery Tracking Sheet": {
+      "main": [
+        [
+          {
+            "node": "Send Daily Newsletter Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Daily Newsletter Email": {
+      "main": [
+        [
+          {
+            "node": "Update Email Sent Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch TechCrunch RSS": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch The Verge RSS": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Fetch Hacker News Top Stories": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Fetch AI News RSS": {
+      "main": [
+        [
+          {
+            "node": "Merge All Data Sources",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge All Data Sources": {
+      "main": [
+        [
+          {
+            "node": "Normalize Data Structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Data Structure": {
+      "main": [
+        [
+          {
+            "node": "Categorize and Summarize Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Categorize and Summarize Items": {
+      "main": [
+        [
+          {
+            "node": "Clean and Normalize Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4989823a-33b3-479d-8887-a1fb94f73ebd",
+  "meta": {
+    "instanceId": "57d056f805ae956a3d00fefe7f8ebc0b16f5f01a66892d384680e60361c974fb"
+  },
+  "id": "iWaXfbdI1fhlOawn",
+  "tags": []
+}
